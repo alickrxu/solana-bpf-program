@@ -83,8 +83,7 @@ impl Processor {
 				initializer.clone(),
 				token_program.clone(),
 			]	
-		)
-
+		)?;
 
 		Ok(())
 	}
