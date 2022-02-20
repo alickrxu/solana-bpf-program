@@ -20,6 +20,10 @@ impl Processor {
 			EscrowInstruction::InitEscrow { amount } => {
 				msg!("Instruction: InitEscrow");
 				Self::process_init_escrow(accounts, amount, program_id)
+			},
+			EscrowInstruction::Exchange { amount } => {
+				msg!("Instruction: Exchange");
+				Self::process_exchange(accounts, amount, program_id)
 			}
 		}
 	}
@@ -85,6 +89,10 @@ impl Processor {
 			]	
 		)?;
 
+		Ok(())
+	}
+
+	fn process_exchange(accounts: &[AccountInfo], amount: u64, program_id: &Pubkey) -> ProgramResult {
 		Ok(())
 	}
 }
