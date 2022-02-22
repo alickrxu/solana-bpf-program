@@ -7,16 +7,9 @@ publish = false
 
 [dependencies]
 solana-program = "=1.9.4"
-
-[features]
-test-bpf = []
-
-[dev-dependencies]
-assert_matches = "1.4.0"
-solana-program-test = "=1.9.4"
-solana-sdk = "=1.9.4"
-solana-validator = "=1.9.4"
-solana-logger = "=1.9.4"
+thiserror = "1.0.24"
+spl-token = {version = "3.2.0", features = ["no-entrypoint"]} # TODO: this allows us to use another solana program. How do I enable no-entrypoint in my program?
+arrayref = "0.3.6"
 
 [lib]
 crate-type = ["cdylib", "lib"]
