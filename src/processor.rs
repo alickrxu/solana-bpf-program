@@ -27,7 +27,7 @@ impl Processor {
 				msg!("Instruction: Exchange");
 				Self::process_exchange(accounts, amount, program_id)
 			},
-			EscrowInstruction::Cancel {} => {
+			EscrowInstruction::Cancel { amount } => {
 				msg!("Instruction: Cancel");
 				Self::process_cancel(accounts, amount, program_id)
 			}
@@ -236,7 +236,7 @@ impl Processor {
 		}
 
 		let escrow_account = next_account_info(account_info_iter)?;
-		let mut escrow_info = Escrow::unpack_unchecked(&escrow_account.try_borrow_data()?)?;
+		let escrow_info = Escrow::unpack_unchecked(&escrow_account.try_borrow_data()?)?;
 		if !escrow_info.is_initialized() {
 			return Err(ProgramError::UninitializedAccount);
 		}
@@ -244,7 +244,7 @@ impl Processor {
 		let token_program = next_account_info(account_info_iter)?;
 
 		let pda_temp_token_account_info = next_account_info(account_info_iter)?;
-		let pda_temp_token_account = TokenAccount::unpack(&pda_temp_token_account.try_borrow_data()?)?;
+		let pda_temp_token_account = TokenAccount::unpack(&pda_temp_token_account_info.try_borrow_data()?)?;
 		let (pda, bump_seed) = Pubkey::find_program_address(&[b"escrow"], program_id);
 
 		if amount_expected_to_return != pda_temp_token_account.amount {
@@ -254,8 +254,8 @@ impl Processor {
 		// Close PDA
 		let close_pdas_temp_acc_ix = spl_token::instruction::close_account(
 			token_program.key,
-			pda_temp_token_account.key,
-			initializers_main_account.key,
+			pda_temp_token_account_info.key,
+			initializer_token_account.key,
 			&pda,
 			&[&pda]
 		)?;
@@ -264,15 +264,15 @@ impl Processor {
 			&close_pdas_temp_acc_ix,
 			&[
 				pda_temp_token_account_info.clone(),
-				initializers_main_account.clone(),
-				pda_account.clone(),
+				initializer_token_account.clone(),
+				pda_temp_token_account_info.clone(),
 				token_program.clone(),
 			],
 			&[&[&b"escrow"[..], &[bump_seed]]],
 		)?;
 
 		msg!("Closing the escrow account...");
-		**initializers_main_account.lamports.borrow_mut() = initializers_main_account.lamports()
+		**initializer_token_account.lamports.borrow_mut() = initializer_token_account.lamports()
 			.checked_add(escrow_account.lamports())
 			.ok_or(EscrowError::AmountOverflow)?;
 		**escrow_account.lamports.borrow_mut() = 0;

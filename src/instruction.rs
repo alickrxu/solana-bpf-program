@@ -45,6 +45,8 @@ pub enum EscrowInstruction {
 	/// 3. `[]` The token program
 	/// 4. `[]` The PDA temp token account that has the tokens to return, should be closed
 	Cancel {
+		// the amount the initializer expects to get returned
+		amount: u64
 	}
 }
 
@@ -60,7 +62,9 @@ impl EscrowInstruction {
 			1 => Self::Exchange {
 				amount: Self::unpack_amount(rest)?,
 			},
-			2 => Self::Cancel {},
+			2 => Self::Cancel {
+				amount: Self::unpack_amount(rest)?,
+			},
 			_ => return Err(InvalidInstruction.into()),
 		})
 	}
