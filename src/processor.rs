@@ -46,6 +46,8 @@ impl Processor {
 		if *token_to_receive_account.owner != spl_token::id() {
 			return Err(ProgramError::IncorrectProgramId);
 		}
+		// Also need to check if token_to_receive account is not a token mint account. If this unpack fails, then we error out
+		TokenAccount::unpack(&token_to_receive_account.try_borrow_data()?)?;
 
 		let escrow_account = next_account_info(account_info_iter)?;
 		let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
