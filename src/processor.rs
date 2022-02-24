@@ -56,6 +56,7 @@ impl Processor {
 
 		// unpack_unchecked comes from default functions from trait in program_pack 
 		// https://docs.rs/solana-program/latest/src/solana_program/program_pack.rs.html#29-39
+		// try_borrow_data fetches the "data" field from the AccountInfo struct
 		let mut escrow_info = Escrow::unpack_unchecked(&escrow_account.try_borrow_data()?)?;
 		if escrow_info.is_initialized() {
 			return Err(ProgramError::AccountAlreadyInitialized);
@@ -71,9 +72,8 @@ impl Processor {
 		Escrow::pack(escrow_info, &mut escrow_account.try_borrow_mut_data()?)?;
 
 		// Program Derived Address
-		// TODO: why do we seed with address of byte array "escrow"? 
-		// Does creating a struct Escrow always start byte represenation with "escrow"?
-		// So if I named the struct "Foo" then i would use &[b"foo]?
+		// Why do we seed with address of byte array "escrow"? A: It's just good convention. Also makes it easy to refer later on.
+		// PDA are NOT on the ed25519 curve, meaning not possible to collide with Solana key pairs
 		let (pda, _bump_seed) = Pubkey::find_program_address(&[b"escrow"], program_id);
 
 		let token_program = next_account_info(account_info_iter)?;
@@ -87,7 +87,7 @@ impl Processor {
 		)?;
 
 		msg!("Calling the token program to transfer token account ownership...");
-		invoke(
+		invoke( // Calls the token program FROM our escrow program
 			&owner_change_ix,
 			&[
 				temp_token_account.clone(),
