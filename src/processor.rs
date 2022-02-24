@@ -26,6 +26,10 @@ impl Processor {
 			EscrowInstruction::Exchange { amount } => {
 				msg!("Instruction: Exchange");
 				Self::process_exchange(accounts, amount, program_id)
+			},
+			EscrowInstruction::Cancel {} => {
+				msg!("Instruction: Cancel");
+				Self::process_cancel(accounts, amount, program_id)
 			}
 		}
 	}
@@ -199,6 +203,72 @@ impl Processor {
 		        token_program.clone(),
 		    ],
 		    &[&[&b"escrow"[..], &[bump_seed]]],
+		)?;
+
+		msg!("Closing the escrow account...");
+		**initializers_main_account.lamports.borrow_mut() = initializers_main_account.lamports()
+			.checked_add(escrow_account.lamports())
+			.ok_or(EscrowError::AmountOverflow)?;
+		**escrow_account.lamports.borrow_mut() = 0;
+		*escrow_account.try_borrow_mut_data()? = &mut [];
+
+		Ok(())
+	}
+
+	/// Cancel can be called after init_escrow. If called after exchange, it's already too late
+	/// since exchange is atomic and tokens have been transferred, so there will be no effect.
+	/// Since tokens haven't actually been transferred from initializer main token account to
+	/// initializer temp token account, we don't need to actually transfer any tokens.
+	/// What we need to do is:
+	/// 1) Close escrow info
+	/// 2) Close PDA account
+	fn process_cancel(accounts: &[AccountInfo], amount_expected_to_return: u64, program_id: &Pubkey) -> ProgramResult {
+		let account_info_iter = &mut accounts.iter();
+		let initializer = next_account_info(account_info_iter)?;
+
+		if !initializer.is_signer {
+			return Err(ProgramError::MissingRequiredSignature);
+		}
+
+		let initializer_token_account = next_account_info(account_info_iter)?;
+		if *initializer_token_account.owner != spl_token::id() {
+			return Err(ProgramError::IncorrectProgramId);
+		}
+
+		let escrow_account = next_account_info(account_info_iter)?;
+		let mut escrow_info = Escrow::unpack_unchecked(&escrow_account.try_borrow_data()?)?;
+		if !escrow_info.is_initialized() {
+			return Err(ProgramError::UninitializedAccount);
+		}
+
+		let token_program = next_account_info(account_info_iter)?;
+
+		let pda_temp_token_account_info = next_account_info(account_info_iter)?;
+		let pda_temp_token_account = TokenAccount::unpack(&pda_temp_token_account.try_borrow_data()?)?;
+		let (pda, bump_seed) = Pubkey::find_program_address(&[b"escrow"], program_id);
+
+		if amount_expected_to_return != pda_temp_token_account.amount {
+			return Err(EscrowError::ExpectedAmountMismatch.into());
+		}
+
+		// Close PDA
+		let close_pdas_temp_acc_ix = spl_token::instruction::close_account(
+			token_program.key,
+			pda_temp_token_account.key,
+			initializers_main_account.key,
+			&pda,
+			&[&pda]
+		)?;
+		msg!("Calling the token program to close pda's temp account...");
+		invoke_signed(
+			&close_pdas_temp_acc_ix,
+			&[
+				pda_temp_token_account_info.clone(),
+				initializers_main_account.clone(),
+				pda_account.clone(),
+				token_program.clone(),
+			],
+			&[&[&b"escrow"[..], &[bump_seed]]],
 		)?;
 
 		msg!("Closing the escrow account...");
