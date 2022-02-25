@@ -43,7 +43,9 @@ pub enum EscrowInstruction {
 	/// 1. `[writable]` The initializer's original token account that should get tokens back
 	/// 2. `[writable]` The escrow account, which should be closed after this tx
 	/// 3. `[]` The token program
-	/// 4. `[]` The PDA temp token account that has the tokens to return, should be closed
+	/// 4. `[writable]` The PDA temp token account that has the tokens to return, should be closed
+	/// 5. `[writable]` The initializer's main account to receive rent from escrow and temp token account
+	/// 6. `[]` The PDA account
 	Cancel {
 		// the amount the initializer expects to get returned
 		amount: u64
