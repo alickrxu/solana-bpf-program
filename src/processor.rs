@@ -34,71 +34,72 @@ impl Processor {
 		}
 	}
 
-	fn process_init_escrow(accounts: &[AccountInfo], amount: u64, program_id: &Pubkey) -> ProgramResult {
-		let account_info_iter = &mut accounts.iter();
-		let initializer = next_account_info(account_info_iter)?;
+	fn process_init_escrow(account_infos: &[AccountInfo], amount: u64, program_id: &Pubkey) -> ProgramResult {
+		let account_info_iter = &mut account_infos.iter();
+		let initializer_account_info = next_account_info(account_info_iter)?;
 
-		if !initializer.is_signer {
+		if !initializer_account_info.is_signer {
 			return Err(ProgramError::MissingRequiredSignature);
 		}
 
 		// This program must be owned by the Solana Token Program
-		let temp_token_account = next_account_info(account_info_iter)?;
+		let temp_token_account_info = next_account_info(account_info_iter)?;
 
 		// This one too, but we actually check it here. Why don't we check previously?
-		let token_to_receive_account = next_account_info(account_info_iter)?;
-		if *token_to_receive_account.owner != spl_token::id() {
+		let token_to_receive_account_info = next_account_info(account_info_iter)?;
+		if *token_to_receive_account_info.owner != spl_token::id() {
 			return Err(ProgramError::IncorrectProgramId);
 		}
 		// Also need to check if token_to_receive account is not a token mint account. If this unpack fails, then we error out
-		TokenAccount::unpack(&token_to_receive_account.try_borrow_data()?)?;
+		// If it's a spl_token::state::Mint, this unpack will fail
+		TokenAccount::unpack(&token_to_receive_account_info.try_borrow_data()?)?;
 
-		let escrow_account = next_account_info(account_info_iter)?;
+		let escrow_account_info = next_account_info(account_info_iter)?;
 		let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
-		if !rent.is_exempt(escrow_account.lamports(), escrow_account.data_len()) {
+		if !rent.is_exempt(escrow_account_info.lamports(), escrow_account_info.data_len()) {
 			return Err(EscrowError::NotRentExempt.into());
 		}
 
 		// unpack_unchecked comes from default functions from trait in program_pack 
 		// https://docs.rs/solana-program/latest/src/solana_program/program_pack.rs.html#29-39
 		// try_borrow_data fetches the "data" field from the AccountInfo struct
-		let mut escrow_info = Escrow::unpack_unchecked(&escrow_account.try_borrow_data()?)?;
+		let mut escrow_info = Escrow::unpack_unchecked(&escrow_account_info.try_borrow_data()?)?;
 		if escrow_info.is_initialized() {
 			return Err(ProgramError::AccountAlreadyInitialized);
 		}
 
 		// Now that we know escrow struct is uninitialized, let's initialize 
 		escrow_info.is_initialized = true;
-		escrow_info.initializer_pubkey = *initializer.key;
-		escrow_info.temp_token_account_pubkey = *temp_token_account.key;
-		escrow_info.initializer_token_to_receive_account_pubkey = *token_to_receive_account.key;
+		escrow_info.initializer_pubkey = *initializer_account_info.key;
+		escrow_info.temp_token_account_pubkey = *temp_token_account_info.key;
+		escrow_info.initializer_token_to_receive_account_pubkey = *token_to_receive_account_info.key;
 		escrow_info.expected_amount = amount;
 
-		Escrow::pack(escrow_info, &mut escrow_account.try_borrow_mut_data()?)?;
+		Escrow::pack(escrow_info, &mut escrow_account_info.try_borrow_mut_data()?)?;
 
 		// Program Derived Address
 		// Why do we seed with address of byte array "escrow"? A: It's just good convention. Also makes it easy to refer later on.
 		// PDA are NOT on the ed25519 curve, meaning not possible to collide with Solana key pairs
 		let (pda, _bump_seed) = Pubkey::find_program_address(&[b"escrow"], program_id);
 
-		let token_program = next_account_info(account_info_iter)?;
+		let token_program_account_info = next_account_info(account_info_iter)?;
 		let owner_change_ix = spl_token::instruction::set_authority(
-			token_program.key,
-			temp_token_account.key, // set_authority will fail if temp_token_account is not owned by Token program
+			token_program_account_info.key,
+			temp_token_account_info.key, // set_authority will fail if temp_token_account is not owned by Token program
 			Some(&pda),
 			spl_token::instruction::AuthorityType::AccountOwner,
-			initializer.key,
-			&[&initializer.key],
+			initializer_account_info.key,
+			&[&initializer_account_info.key],
 		)?;
 
 		msg!("Calling the token program to transfer token account ownership...");
 		invoke( // Calls the token program FROM our escrow program
 			&owner_change_ix,
 			&[
-				temp_token_account.clone(),
-				initializer.clone(),
-				token_program.clone(),
+				temp_token_account_info.clone(),
+				initializer_account_info.clone(),
+				token_program_account_info.clone(),
 			]	
 		)?;
 
