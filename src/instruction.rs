@@ -47,8 +47,6 @@ pub enum EscrowInstruction {
 	/// 5. `[writable]` The initializer's main account to receive rent from escrow and temp token account
 	/// 6. `[]` The PDA account
 	Cancel {
-		// the amount the initializer expects to get returned
-		amount: u64
 	}
 }
 
@@ -64,9 +62,7 @@ impl EscrowInstruction {
 			1 => Self::Exchange {
 				amount: Self::unpack_amount(rest)?,
 			},
-			2 => Self::Cancel {
-				amount: Self::unpack_amount(rest)?,
-			},
+			2 => Self::Cancel {},
 			_ => return Err(InvalidInstruction.into()),
 		})
 	}

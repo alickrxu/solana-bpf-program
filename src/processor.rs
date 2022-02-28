@@ -27,9 +27,9 @@ impl Processor {
 				msg!("Instruction: Exchange");
 				Self::process_exchange(accounts, amount, program_id)
 			},
-			EscrowInstruction::Cancel { amount } => {
+			EscrowInstruction::Cancel { } => {
 				msg!("Instruction: Cancel");
-				Self::process_cancel(accounts, amount, program_id)
+				Self::process_cancel(accounts, program_id)
 			}
 		}
 	}
@@ -203,7 +203,7 @@ impl Processor {
 	/// What we need to do is:
 	/// 1) Close PDA account
 	/// 2) Close escrow info
-	fn process_cancel(account_infos: &[AccountInfo], amount_expected_to_return: u64, program_id: &Pubkey) -> ProgramResult {
+	fn process_cancel(account_infos: &[AccountInfo], program_id: &Pubkey) -> ProgramResult {
 		let account_info_iter = &mut account_infos.iter();
 		let initializer_info = next_account_info(account_info_iter)?;
 
@@ -228,10 +228,6 @@ impl Processor {
 		let pda_temp_token_account = TokenAccount::unpack(&pda_temp_token_account_info.try_borrow_data()?)?;
 		let (pda, bump_seed) = Pubkey::find_program_address(&[b"escrow"], program_id);
 
-		if amount_expected_to_return != pda_temp_token_account.amount {
-			return Err(EscrowError::ExpectedAmountMismatch.into());
-		}
-
 		let initializers_main_account_info = next_account_info(account_info_iter)?;
 		// Validate Escrow matches instruction
 		if escrow.temp_token_account_pubkey != *pda_temp_token_account_info.key {
@@ -245,6 +241,9 @@ impl Processor {
 		}
 		
 		let pda_account_info = next_account_info(account_info_iter)?;
+
+		// Close initializer_token_account, return rent fees
+		
 
 		Self::close_pda_and_escrow(
 			pda_temp_token_account_info,
