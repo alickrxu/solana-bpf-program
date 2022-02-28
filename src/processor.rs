@@ -226,7 +226,6 @@ impl Processor {
 		let token_program_account_info = next_account_info(account_info_iter)?;
 
 		let pda_temp_token_account_info = next_account_info(account_info_iter)?;
-		let pda_temp_token_account = TokenAccount::unpack(&pda_temp_token_account_info.try_borrow_data()?)?;
 		let (pda, bump_seed) = Pubkey::find_program_address(&[b"escrow"], program_id);
 
 		let initializers_main_account_info = next_account_info(account_info_iter)?;
