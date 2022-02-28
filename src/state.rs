@@ -1,3 +1,4 @@
+/// state file is responsible for 1) defining state objects that the processor can use 2) serializing and deserializing such objects from and into arrays of u8 respectively.
 use solana_program::{
 	program_pack::{IsInitialized, Pack, Sealed},
 	program_error::ProgramError,
@@ -25,7 +26,7 @@ impl IsInitialized for Escrow {
 
 impl Pack for Escrow {
 	const LEN: usize = 105; // 1 (bool) + 3 * 32(Pubkey) + 1 * 8 (u64) = 105
-	fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+	fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> { // This is static becausee there is no &self parameter
 		let src = array_ref![src, 0, Escrow::LEN];
 		let (
 			is_initialized,

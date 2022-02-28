@@ -34,6 +34,19 @@ pub enum EscrowInstruction {
 	Exchange {
 		/// the amount the taker expects to be paid in the other token
 		amount: u64
+	},
+
+	/// Allow initializer to cancel the trade 
+	/// Accounts expeted:
+	///
+	/// 0. `[signer]` The account of the person who initialized the escrow and wants to cancel
+	/// 1. `[writable]` The initializer's original token account that should get tokens back
+	/// 2. `[writable]` The escrow account, which should be closed after this tx
+	/// 3. `[]` The token program
+	/// 4. `[writable]` The PDA temp token account that has the tokens to return, should be closed
+	/// 5. `[writable]` The initializer's main account to receive rent from escrow and temp token account
+	/// 6. `[]` The PDA account
+	Cancel {
 	}
 }
 
@@ -49,6 +62,7 @@ impl EscrowInstruction {
 			1 => Self::Exchange {
 				amount: Self::unpack_amount(rest)?,
 			},
+			2 => Self::Cancel {},
 			_ => return Err(InvalidInstruction.into()),
 		})
 	}
