@@ -243,7 +243,11 @@ impl Processor {
 		let pda_account_info = next_account_info(account_info_iter)?;
 
 		// Close initializer_token_account, return rent fees
-		
+		**initializers_main_account_info.lamports.borrow_mut() = initializers_main_account_info.lamports()
+			.checked_add(initializer_token_account_info.lamports())
+			.ok_or(EscrowError::AmountOverflow)?;
+		**initializer_token_account_info.lamports.borrow_mut() = 0;
+		*initializer_token_account_info.try_borrow_mut_data()? = &mut [];
 
 		Self::close_pda_and_escrow(
 			pda_temp_token_account_info,
